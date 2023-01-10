@@ -2,7 +2,8 @@ use std::path::Path;
 
 mod util;
 
-use crate::util::{env::current_directory, file_system::get_file_content};
+use util::env::current_directory;
+use util::file_system::get_file_paths;
 
 fn main() {
     let directory_file_path = Path::new(&current_directory())
@@ -16,7 +17,5 @@ fn main() {
         );
     }
 
-    for file_path in get_file_content(&directory_file_path) {
-        println!("{}", file_path);
-    }
+    get_file_paths(&directory_file_path);
 }
