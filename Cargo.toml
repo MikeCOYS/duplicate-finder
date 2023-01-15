@@ -2,8 +2,9 @@
 name = "duplicate-finder"
 version = "0.1.0"
 edition = "2021"
+authors = ["Michael Chung <mc-dm-xv@outlook.com>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-walkdir = "2"
+xxhash-rust = { version = "0.8.6", features = ["xxh3"] }

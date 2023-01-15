@@ -1,13 +1,11 @@
 use std::{
-    collections::BTreeSet,
-    fs::File,
-    io::{BufRead, BufReader},
+    collections::{HashMap, HashSet},
+    fs::{metadata, read_dir, File},
+    io::{BufRead, BufReader, Error},
     path::PathBuf,
 };
 
-use walkdir::WalkDir;
-
-pub fn get_file_content(file_path: &PathBuf) -> Vec<String> {
+pub fn get_file_content(file_path: &PathBuf) -> Result<Vec<String>, Error> {
     let file = match File::open(file_path) {
         Ok(f) => f,
         Err(e) => panic!(
@@ -16,26 +14,53 @@ pub fn get_file_content(file_path: &PathBuf) -> Vec<String> {
             e
         ),
     };
-    let reader = BufReader::new(file);
 
-    reader
-        .lines()
-        .map(|line| line.expect("Could not load line"))
-        .collect()
+    BufReader::new(file).lines().collect()
 }
 
-pub fn get_file_paths(directory_file_path: &PathBuf) -> BTreeSet<PathBuf> {
-    get_file_content(directory_file_path)
-        .into_iter()
-        .flat_map(WalkDir::new)
-        .flat_map(|f| f.ok())
-        .filter_map(|x| {
-            if x.metadata().unwrap().is_file() {
-                return Some(x.path().to_owned());
-            }
+fn list_files_recursively(dir: &PathBuf) -> Result<HashSet<PathBuf>, Error> {
+    let read_dir = read_dir(dir)?;
+    let mut files = HashSet::new();
 
-            None
-        })
+    for entry in read_dir {
+        let path = entry?.path();
+
+        if path.is_dir() {
+            files.extend(list_files_recursively(&path)?);
+        } else {
+            files.insert(path);
+        }
+    }
+
+    Ok(files.drain().collect())
+}
+
+pub fn get_file_paths(directory_paths: Vec<PathBuf>) -> Result<HashSet<PathBuf>, Error> {
+    let mut files = HashSet::new();
+
+    for directory_path in directory_paths {
+        for file_path in list_files_recursively(&directory_path).unwrap() {
+            files.insert(file_path);
+        }
+    }
+
+    Ok(files.drain().collect())
+}
+
+pub fn group_files_by_size(
+    file_paths: HashSet<PathBuf>,
+) -> Result<HashMap<u64, Vec<PathBuf>>, Error> {
+    let mut files_by_size = HashMap::new();
+
+    for file in file_paths {
+        files_by_size
+            .entry(metadata(file.clone())?.len())
+            .or_insert_with(Vec::new)
+            .push(file);
+    }
+
+    Ok(files_by_size
         .into_iter()
-        .collect()
+        .filter(|(_, v)| v.len() > 1)
+        .collect::<HashMap<_, _>>())
 }
